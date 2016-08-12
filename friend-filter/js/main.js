@@ -71,23 +71,63 @@ new Promise((resolve) => {
         friendsList = [], friendsFiltered = [], // массивы списков общих и отсортированных друзей соответственно
         targetElem, specterLi, specterLiX, specterLiY; // переменные для работы Drag'n'Drop
 
-    // функция выводит список друзей на панели друзей
+    // функция выводит списки друзей на панели друзей
     // @param массив list массив со списком друзей
-    // @param строка side список, в котором нужно вывести друзей (может быть только 'left' или 'right')
-    let showFriendsList = (list, side) => {
-        let listOfFriends = document.createElement('ul'),
-            container = document.querySelector(`[data-list=${side}]`);
-        if (!list.length) list = [{no_match: 'Друзья не найдены!'}];
-        listOfFriends.innerHTML = template({friend: list});
-        container.appendChild(listOfFriends);
+    let loadFriendsListsIntoDOM = (list) => {
+        let container = document.querySelectorAll('.container');
+
+        for (let i = 0; i < container.length; i++){
+            let listOfFriends = document.createElement('ul');
+            listOfFriends.innerHTML = template({friend: list});
+            container[i].appendChild(listOfFriends);
+        }
     };
 
-    // функция удаляет список друзей на панели друзей
-    // @param строка side список, который нужно удалить (может быть только 'left' или 'right')
-    let removeFriendsList = (side) => {
-        let container = document.querySelector(`[data-list=${side}]`),
-            list = container.children[1];
-        list.remove();
+    // функция показывает всех друзей, содержащихся в массиве (читай найденных через поиск)
+    // @param массив list массив со списком друзей
+    // @param строка side список, в котором нужно вывести друзей (может быть только 'left' или 'right')
+    let showFoundFriends = (list, side) => {
+        let style = document.querySelector(`#show-hide-${side}`);
+
+        style.innerText = `div[data-list='${side}'] li {display:none} `;
+        if (list.length) {
+            for (let obj of list){
+                style.innerText += `div[data-list='${side}'] li[data-id='${obj.uid}'] {display:block} `;
+            }
+            /*list.forEach(obj => {
+                style.innerText += `div[data-list='${side}'] li[data-id='${obj.uid}'] {display:block} `;
+                console.log(style.innerText);
+            })*/
+        } else {
+            style.innerText += `div[data-list='${side}'] .no-match {display:block} `;
+        }
+    };
+
+    // функция делает видимым определенного друга
+    // @param строка uid строка, содержащая уникальный номер друга
+    // @param строка side список, в котором нужно показать друга
+    let showFriend = (uid, side) => {
+        let style = document.querySelector(`#show-hide-${side}`);
+        style.innerText += `div[data-list='${side}'] li[data-id='${uid}'] {display:block} `;
+    };
+
+    // функция скрывает определенного друга
+    // @param строка uid строка, содержащая уникальный номер друга
+    // @param строка side список, в котором нужно показать друга
+    let hideFriend = (uid, side) => {
+        let style = document.querySelector(`#show-hide-${side}`);
+        console.time('styleHide');
+        style.innerText += `div[data-list='${side}'] li[data-id='${uid}'] {display:none} `;
+        console.timeEnd('styleHide');
+    };
+
+    // функция определяет, есть ли среди друзей тот, который удовлетворяет строке поиска
+    // @param объект obj объект, содержащая сведения о друге
+    // @param элемент searchField элемент строки поиска (input)
+    let isIncluded = (obj, searchField) => {
+        return obj.first_name.toLowerCase().startsWith(searchField.value.toLowerCase()) ||
+                obj.last_name.toLowerCase().startsWith(searchField.value.toLowerCase()) ||
+                (obj.first_name + ' ' + obj.last_name).toLowerCase().startsWith(searchField.value.toLowerCase())
     };
 
     // функция поиска друзей по имени и фамилии в любом из списков и вывода найденных на панель друзьей
@@ -96,31 +136,26 @@ new Promise((resolve) => {
 
         // непосредственно поиск друзей в указанном списке и их вывод
         // @param массив list массив со списком друзей
-        // @param строка side список, в котором нужно отобразить друзей (может быть только 'left' или 'right')
+        // @param строка side список, в котором нужно отобразить друзей
         let localSearch = (list, side) => {
             if (list.length) {
-                removeFriendsList(side);
-                showFriendsList(list.filter(obj => {
-                    return obj.first_name.toLowerCase().startsWith(search.value.toLowerCase()) ||
-                           obj.last_name.toLowerCase().startsWith(search.value.toLowerCase()) ||
-                           (obj.first_name + ' ' + obj.last_name).toLowerCase().startsWith(search.value.toLowerCase())
-                }),side);
+                showFoundFriends(list.filter(obj => {return isIncluded(obj,search)}),side);
             }
-            return list;
         };
 
         // определение в каком списке нужно производить поиск
-        if (search.id.indexOf('Left') > 0) {
-            friendsList = localSearch(friendsList,'left');
-        } else if (search.id.indexOf('Right') > 0) {
-            friendsFiltered = localSearch(friendsFiltered,'right');
+        if (search == searchInLeft) {
+            localSearch(friendsList,'left');
+        } else if (search == searchInRight) {
+            localSearch(friendsFiltered,'right');
         }
     };
 
     // функция "переброса" друга из одного списка в другой
     let toggleFriend = (e) => {
         let elem = e.target || e.children[1].children[0],
-            parentElem = elem.parentNode;
+            parentLi = elem.parentNode.parentNode,
+            whatBtn = elem.closest('.container')? elem.closest('.container').dataset.list : null;
 
         // изменение принадлежности друга к текущему списку и запись его в новый
         // отображение измененных списков друзей
@@ -129,28 +164,39 @@ new Promise((resolve) => {
         // @param строка sideM список, в котором нужно отобразить нового друга
         // @param строка sideS список, в котором нужно удалить друга
         let localToggle = (listMain, listSecondary, sideM, sideS) => {
-            let li = parentElem.parentNode,
-                uid = parentElem.previousElementSibling.dataset.id;
-            if (listMain.length) removeFriendsList(sideM);
+            let uid = parentLi.dataset.id,
+                searchField = (sideM == 'right')? searchInRight : searchInLeft,
+                friend = {};
+
             listMain.push(listSecondary.splice(listSecondary.findIndex(obj => {
                 if (obj.uid == uid) {
-                    (!obj.filtered)? obj.filtered = true : delete obj.filtered;
+                    friend = obj;
                     return true;
                 } else {
                     return false;
                 }
             }),1)[0]);
-            li.remove();
-            showFriendsList(listMain,sideM);
-            if (!listSecondary.length) removeFriendsList(sideS);
+
+            if (isIncluded(friend,searchField)) {
+                console.time('show');
+                showFriend(uid,sideM);
+                console.timeEnd('show');
+            }
+            console.time('hide');
+            hideFriend(uid,sideS);
+            console.timeEnd('hide');
             return [listMain,listSecondary];
         };
 
-        // определение в куда нужно добавить и от куда нужно удалить друга
-        if (elem.classList.contains('fa-plus')) {
+        // определение куда нужно добавить и от куда нужно удалить друга
+        if (elem.classList.contains('fa') && whatBtn == 'left') {
+            console.time('toggle Left to Right');
             [friendsFiltered,friendsList] = localToggle(friendsFiltered,friendsList,'right','left');
-        } else if (elem.classList.contains('fa-times')){
+            console.timeEnd('toggle Left to Right');
+        } else if (elem.classList.contains('fa') && whatBtn == 'right'){
+            console.time('toggle Right to Left');
             [friendsList,friendsFiltered] = localToggle(friendsList,friendsFiltered,'left','right');
+            console.timeEnd('toggle Right to Left');
         }
     };
 
@@ -163,7 +209,7 @@ new Promise((resolve) => {
                 return false;
             }
 			let elem = e.target.classList.contains('fa')? null : e.target.closest('li');
-            if (elem && elem.children[0].dataset.id) {
+            if (elem && elem.dataset.id) {
                 e.preventDefault();
                 targetElem = elem;
                 specterLi = document.createElement('div');
@@ -197,10 +243,10 @@ new Promise((resolve) => {
 			    specterLi.style.visibility = 'hidden';
                 let targetList = document.elementFromPoint(e.clientX,e.clientY).closest('.container'),
                     dataList = targetList? targetList.dataset.list : null,
-                    isElemLeft = targetElem.children[1].children[0].classList.contains('fa-plus');
+                    whatBtn = targetElem.closest('.container')? targetElem.closest('.container').dataset.list : null;
 
-                if ((dataList == 'right' && isElemLeft) ||
-                    (dataList == 'left' && !isElemLeft)) {
+                if ((dataList == 'right' && whatBtn == 'left') ||
+                    (dataList == 'left' && whatBtn == 'right')) {
                     specterLi.style.visibility = 'visible';
                     specterLi.style.border = '3px #ff8663 solid';
                     toggleFriend(targetElem);
@@ -237,17 +283,20 @@ new Promise((resolve) => {
     // определяем что пришло с предыдущего шага:
     // если пользователь ранее когда-либо сохранял списки друзей, то вернется объект с сохраненными списками друзей
     // если не сохранял, то вернеться массив друзей, полученный от ВКонтакте
+    // заполняем соответствующие массивы
+    // несмотря на то, что вернется, грузим в DOM полный спикок друзей
     if (!response.length) {
         friendsList = response.friendsList;
         friendsFiltered = response.friendsFiltered;
+        showFoundFriends(friendsList,'left');
+        showFoundFriends(friendsFiltered,'right');
+        loadFriendsListsIntoDOM(friendsList.concat(friendsFiltered));
     } else {
         friendsList = response;
+        // избавляемся от заблокированных друзей и выводим списки друзей
+        friendsList = friendsList.filter(obj => {return !obj.deactivated});
+        loadFriendsListsIntoDOM(friendsList);
     }
-
-    // избавляемся от заблокированных друзей и выводим списки друзей
-    friendsList = friendsList.filter(obj => {return !obj.deactivated});
-    showFriendsList(friendsList, 'left');
-    if (friendsFiltered.length) showFriendsList(friendsFiltered, 'right');
 
     searchInLeft.addEventListener('input', searchInList);
     searchInRight.addEventListener('input', searchInList);

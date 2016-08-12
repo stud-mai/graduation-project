@@ -17,6 +17,8 @@
                 logo.style.left = (panelWidth / 2 - logoWidth / 2) + 'px';
             }
         </script>
+        <style id="show-hide-left"></style>
+        <style id="show-hide-right"></style>
     </head>
     <body>
         <div class="panel panel-auth">
@@ -77,24 +79,21 @@
         <script src="js/main.js"></script>
         <script id="friendsLi" type="text/x-handlebars-template">
             {{#each friend}}
-                <li>
-                    {{#if no_match}}
-                        <div class="friend">
-                            <span>{{no_match}}</span>
-                        </div>
-                    {{else}}
-                        <div class="friend" data-id="{{uid}}">
-                            <img src="{{photo_50}}" />
-                            <span>{{first_name}} {{last_name}}</span>
-                        </div>
-                        {{#if filtered}}
-                            <span><i class="fa fa-times"></i></span>
-                        {{else}}
-                            <span><i class="fa fa-plus"></i></span>
-                        {{/if}}
-                    {{/if}}
+                <li data-id="{{uid}}">
+                    <div class="friend">
+                        <img src="{{photo_50}}" />
+                        <span>{{first_name}} {{last_name}}</span>
+                    </div>
+                    <span>
+                        <i class="fa fa-plus fa-times"></i>
+                    </span>
                 </li>
             {{/each}}
+            <li class="no-match">
+                <div class="friend">
+                    <span>Друзья не найдены!</span>
+                </div>
+            </li>
         </script>
     </body>
 </html>

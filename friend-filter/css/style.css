@@ -205,6 +205,14 @@ body{
 	background-color: #f0f0f0;
 }
 
+.container .no-match{
+	display: none;
+}
+
+[data-list=right] li {
+	display: none;
+}
+
 .specter{
 	position: absolute;
 	height: 60px;
@@ -299,7 +307,7 @@ li > span,
 	content: "\f002";
 }
 
-.fa-plus:before {
+.left .fa-plus:before {
 	content: "\f067";
 }
 
