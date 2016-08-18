@@ -8,7 +8,7 @@ new Promise((resolve) => {
     if (document.readyState == 'complete'){
         resolve()
     } else {
-        window.onload = resolve()
+        window.onload = resolve
     }
 }).then(() => {
     return new Promise((resolve) => {
@@ -46,10 +46,8 @@ new Promise((resolve) => {
     // Проверяем сохранял ли пользователь списки в друзьями
     // Если сохранял, то "вытаскиваем" их из localStorage
     // Если не сохранял, то запрашиваем у ВКонтакте список его друзей
-    if (localStorage[mid]) {
-        let storage = JSON.parse(localStorage[mid]);
-        return {friendsList: storage.friendsList, friendsFiltered: storage.friendsFiltered};
-    } else {
+    if (localStorage[mid]) return JSON.parse(localStorage[mid]);
+    else {
         return new Promise((resolve, reject) => {
             // Вызывем метод запроса списка друзей пользователя на ВКонтакте
             VK.Api.call('friends.get', {fields: 'photo_50', version: 5.8}, (response) => {
@@ -76,8 +74,9 @@ new Promise((resolve) => {
     // @param строка side список, в котором нужно вывести друзей (может быть только 'left' или 'right')
     let showFriendsList = (list, side) => {
         let listOfFriends = document.createElement('ul'),
-            container = document.querySelector(`[data-list=${side}]`);
-        if (!list.length) list = [{no_match: 'Друзья не найдены!'}];
+            container = document.querySelector(`[data-list=${side}]`),
+            notFoundFriends = [{no_match: 'Друзья не найдены!'}];
+        if (!list.length) list = notFoundFriends;
         listOfFriends.innerHTML = template({friend: list});
         container.appendChild(listOfFriends);
     };
@@ -99,20 +98,23 @@ new Promise((resolve) => {
         // @param строка side список, в котором нужно отобразить друзей (может быть только 'left' или 'right')
         let localSearch = (list, side) => {
             if (list.length) {
+                let searchString = search.value.toLowerCase();
+                let isIncluded = (obj) => {
+                    return obj.first_name.toLowerCase().startsWith(searchString) ||
+                        obj.last_name.toLowerCase().startsWith(searchString) ||
+                        (obj.first_name + ' ' + obj.last_name).toLowerCase().startsWith(searchString)
+                };
+
                 removeFriendsList(side);
-                showFriendsList(list.filter(obj => {
-                    return obj.first_name.toLowerCase().startsWith(search.value.toLowerCase()) ||
-                           obj.last_name.toLowerCase().startsWith(search.value.toLowerCase()) ||
-                           (obj.first_name + ' ' + obj.last_name).toLowerCase().startsWith(search.value.toLowerCase())
-                }),side);
+                showFriendsList(list.filter(isIncluded),side);
             }
             return list;
         };
 
         // определение в каком списке нужно производить поиск
-        if (search.id.indexOf('Left') > 0) {
+        if (search === searchInLeft) {
             friendsList = localSearch(friendsList,'left');
-        } else if (search.id.indexOf('Right') > 0) {
+        } else if (search === searchInRight) {
             friendsFiltered = localSearch(friendsFiltered,'right');
         }
     };
@@ -226,8 +228,6 @@ new Promise((resolve) => {
         if (confirm('Все не сохраненные данные будут удалены. Вы действительно хотите закончить работу с приложением?')) {
             VK.Auth.logout(response => {
                 if (!response.session) {
-                    /*friendsPanel.style.visibility = 'hidden';
-                    authPanel.style.visibility = 'visible';*/
                     location.reload();
                 }
             })
